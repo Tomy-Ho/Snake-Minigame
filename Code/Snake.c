@@ -32,17 +32,14 @@ void printBoard(){
 void randomGenerateFruit(){
     srand(time(NULL));
     int maxAmountFood = 15;
+    int innerCol = col - 1;
+    int innerRow = row - 1;
 
-    for(int i = 0; i < row; i++){
-        for(int j = 0; j < col; j++){
-            if(!(i == 0 || j == 0 || i == row - 1 || j == col - 1)){
-                continue;
-            }
-            if(maxAmountFood != 0){
-                board[(rand() % sizeof(board)) + 1] = 'o';
-                maxAmountFood--;
-            }
-        }
+    for(int i = 0; i < maxAmountFood; i++){
+        int x = rand() % innerCol + 1;
+        int y = rand() % innerRow + 1;
+
+        board[y * col + x] = 'o';
     }
 }
 
