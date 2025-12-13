@@ -4,13 +4,21 @@
 #include <ncurses.h>
 #include <ctype.h>
 
-const int row = 30;
-const int col = 40;
-const int snakeMaxLength = 15;
+#define row 30
+#define col 40
+#define snakeMaxLength 15
+
+struct SnakeParts{
+    char snakeParts[snakeMaxLength];
+    int x;
+    int y;
+    int last_x;
+    int last_y;
+};
 
 struct Snake{
     int snakeLength;
-    int snakeParts[snakeMaxLength];
+    struct SnakeParts parts[snakeMaxLength];
     int xPos;
     int yPos;
 };
@@ -24,7 +32,7 @@ char board[row * col];
 struct Food foodCoords[snakeMaxLength];
 struct Snake snake;
 bool gameOver = FALSE;
-
+int score = 0;
 
 
 void generateBoard(){
@@ -34,8 +42,10 @@ void generateBoard(){
                 board [i * col + j] = '-';
             } else if(j == 0 || j == col - 1){
                 board [i * col + j] = '|';
+            } else if(board[i * col + j] == '*'){
+                continue;
             } else {
-                board [i * col + j] = ' ';
+                board[i * col + j] = ' ';
             }
         }
     }
@@ -47,7 +57,11 @@ void printBoard(){
             mvprintw(i, j, "%c", board[i * col + j]); //replaced printf with mvprintw from ncurses -> because ncurses takes over the terminal, which broke the gameboard
         }
     }
-    mvprintw(row + 1, 0, "Aktuelle Spalten: %d", COLS);
+}
+
+void printGameInfo(){
+    mvprintw(row + 1, 0, "Your Score: %d", score);
+    mvprintw(row + 2, 0, "Snake growth: %d", snake.snakeLength);
 }
 
 void randomGenerateFruit(){
@@ -75,10 +89,77 @@ void generateSnakeHead(){
     board[yPos * col + xPos] = '8';
     snake.xPos = xPos;
     snake.yPos = yPos;
-    snake.snakeLength = 1;
+}
+
+void initializeSnake(){
+    snake.snakeLength = 0;
+    for(int i = 0; i < snakeMaxLength; i++){
+        snake.parts[i].snakeParts[i] = ' ';
+    }
+}
+
+void updateSnakePartsPos(int old_x, int old_y){
+
+    for(int i = snakeMaxLength - 1; i > 0; i--){
+        if(snake.parts[i].snakeParts[i] == ' '){
+            continue;
+        }
+        snake.parts[i].last_x = snake.parts[i].x;
+        snake.parts[i].last_y = snake.parts[i].y;
+        snake.parts[i].x = snake.parts[i - 1].x;
+        snake.parts[i].y = snake.parts[i - 1].y; 
+    }
+
+    snake.parts[0].last_x = snake.parts[0].x;
+    snake.parts[0].last_y = snake.parts[0].y;
+    snake.parts[0].x = old_x;
+    snake.parts[0].y = old_y; 
+}
+
+void snakePartsInBoard(){
+    int pos_x;
+    int pos_y;
+    for(int i = 0; i < snakeMaxLength; i++){
+        if(snake.parts[i].snakeParts[i] == 'o'){
+            pos_x = snake.parts[i].x;
+            pos_y = snake.parts[i].y;
+            board[pos_y * col + pos_x] = snake.parts[i].snakeParts[i]; 
+        }
+    }
+}
+
+void eatFruit(int position, int old_x, int old_y){
+    snake.snakeLength += 1;
+    score += 1;
+
+    for(int i = 0; i < snakeMaxLength; i++){
+        if(snake.parts[i].snakeParts[i] == ' '){
+            snake.parts[i].snakeParts[i] = 'o';
+            if(i == 0){
+                snake.parts[i].x = old_x;
+                snake.parts[i].y = old_y;
+            } else {
+                snake.parts[i].x = snake.parts[i-1].last_x;
+                snake.parts[i].y = snake.parts[i-1].last_y;
+            }
+            break;
+        }
+    }
+}
+
+void collisionFruit(int *snake_x, int *snake_y, int old_x, int old_y){
+    int snakeBoardPos = *snake_y * col + *snake_x;
+
+    if(board[snakeBoardPos] == '*'){
+        eatFruit(snakeBoardPos, old_x, old_y);
+    }
 }
 
 void moveSnake(int *snake_x, int *snake_y, int dx, int dy){
+    int old_x = *snake_x;
+    int old_y = *snake_y;
+    board[old_y * col + old_x] = ' ';
+
     *snake_x += dx;
     *snake_y += dy;
 
@@ -96,6 +177,12 @@ void moveSnake(int *snake_x, int *snake_y, int dx, int dy){
 
     if(*snake_x > col - 2){
         *snake_x = col - 2;
+    }
+
+    collisionFruit(&snake.xPos, &snake.yPos, old_x, old_y);
+
+    if(snake.snakeLength > 0){
+        updateSnakePartsPos(old_x, old_y);
     }
 }
 
@@ -122,13 +209,19 @@ void movementSnake(int inputKey){
     }    
 }
 
-void eatFruit(){
-
+void quitGame(int inputKey){
+    if(tolower(inputKey) == 'q'){
+        mvprintw(0, 0, "Game Over.");
+        mvprintw(1, 0, "Your score: %d", score);
+        gameOver = TRUE;
+    }
 }
 
 void updateBoard(){
     generateBoard();
     board[snake.yPos * col + snake.xPos] = '8';
+    snakePartsInBoard();
+    printGameInfo();
 }
 
 void runGame(){
@@ -142,6 +235,7 @@ void runGame(){
         clear();
         updateBoard();
         printBoard();
+        quitGame(inputKey);
         refresh();          //writes content on screen (terminal) and refreshes
         nanosleep(&tspec, NULL);
     }
@@ -162,6 +256,7 @@ int main(void){
     randomGenerateFruit();
     
     generateBoard();
+    initializeSnake();
     generateSnakeHead();
 
     runGame();

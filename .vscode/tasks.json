@@ -6,9 +6,9 @@
             "command": "/usr/bin/gcc",
             "args": [
                 "-g",
-                "${fileDirname}/Code/Snake.c",
+                "${fileDirname}/Snake.c",
                 "-o",
-                "${fileDirname}/Code/Snake",
+                "${fileDirname}/Snake",
                 "-lncurses"
             ],
             "group": {

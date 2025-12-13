@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/tomy/Documents/Projects/VSCode/C/Snake-Minigame/.vscode/Code/Snake'
+relocations:     []
+...
