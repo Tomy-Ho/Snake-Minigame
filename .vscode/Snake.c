@@ -3,6 +3,7 @@
 #include <time.h>
 #include <ncurses.h>
 #include <ctype.h>
+#include <pthread.h>
 
 #define row 30
 #define col 40
@@ -28,12 +29,18 @@ struct Food{
     int yPos;
 };
 
+struct AutoMove{
+    int *direction;
+    int delta;
+};
+
 char board[row * col];
 struct Food foodCoords[snakeMaxLength];
 struct Snake snake;
+struct AutoMove selfMove;
 bool gameOver = FALSE;
 int score = 0;
-
+pthread_t autoMoveThread;
 
 void generateBoard(){
     for(int i = 0; i < row; i++){
@@ -89,6 +96,9 @@ void generateSnakeHead(){
     board[yPos * col + xPos] = '8';
     snake.xPos = xPos;
     snake.yPos = yPos;
+
+    selfMove.direction = &snake.xPos;
+    selfMove.delta = 0;
 }
 
 void initializeSnake(){
@@ -163,27 +173,36 @@ void moveSnake(int *snake_x, int *snake_y, int dx, int dy){
     *snake_x += dx;
     *snake_y += dy;
 
-    if(*snake_y < 1){
-        *snake_y = 1;
-    }
-
-    if(*snake_y > row - 2){
-        *snake_y = row - 2;
-    }
-
-    if(*snake_x < 1){
-        *snake_x = 1;
-    }
-
-    if(*snake_x > col - 2){
-        *snake_x = col - 2;
-    }
-
     collisionFruit(&snake.xPos, &snake.yPos, old_x, old_y);
 
     if(snake.snakeLength > 0){
         updateSnakePartsPos(old_x, old_y);
     }
+}
+
+void* autoMove(void* arg){
+    struct timespec tspec;
+    tspec.tv_sec = 0;
+    tspec.tv_nsec = 300000000;
+    int old_x;
+    int old_y;
+
+    while(!gameOver){
+        old_x = snake.xPos;
+        old_y = snake.yPos;
+
+        *selfMove.direction += selfMove.delta;
+        board[old_y * col + old_x] = ' ';
+
+        collisionFruit(&snake.xPos, &snake.yPos, old_x, old_y);
+
+        if(snake.snakeLength > 0){
+            updateSnakePartsPos(old_x, old_y);
+        }
+
+        nanosleep(&tspec, NULL);
+    }
+    return 0;
 }
 
 void movementSnake(int inputKey){
@@ -194,15 +213,23 @@ void movementSnake(int inputKey){
     switch(tolower(inputKey)){
         case 'w':
             moveSnake(&snake.xPos, &snake.yPos, 0, -1);
+            selfMove.direction = &snake.yPos;
+            selfMove.delta = -1;
             break;
         case 'a':
             moveSnake(&snake.xPos, &snake.yPos, -1, 0);
+            selfMove.direction = &snake.xPos;
+            selfMove.delta = -1;
             break;
         case 's':
             moveSnake(&snake.xPos, &snake.yPos, 0, 1);
+            selfMove.direction = &snake.yPos;
+            selfMove.delta = 1;
             break;
         case 'd':
             moveSnake(&snake.xPos, &snake.yPos, 1, 0);
+            selfMove.direction = &snake.xPos;
+            selfMove.delta = 1;
             break;
         default:
             break;
@@ -217,6 +244,26 @@ void quitGame(int inputKey){
     }
 }
 
+void endGame(){
+    mvprintw(row + 2, 0, "Game Over!");
+    mvprintw(row + 3, 0, "Your score: %d", score);
+    gameOver = TRUE;
+}
+
+void selfCollision(int *snake_x, int *snake_y){
+    int snakePos = *snake_y * col + *snake_x;
+
+    if(*snake_y < 1 || *snake_x < 1 || *snake_y > row - 2 || *snake_x > col - 2){
+        mvprintw(row + 1, 0, "You hit the wall!");
+        endGame();
+    }
+
+    if(board[snakePos] == 'o'){
+        mvprintw(row + 1, 0, "You hit yourself!");
+        endGame();
+    }
+}
+
 void updateBoard(){
     generateBoard();
     board[snake.yPos * col + snake.xPos] = '8';
@@ -228,7 +275,6 @@ void runGame(){
     struct timespec tspec;
     tspec.tv_sec = 0;
     tspec.tv_nsec = 60000;
-
     while(!gameOver){
         int inputKey = getch();
         movementSnake(inputKey);
@@ -236,6 +282,7 @@ void runGame(){
         updateBoard();
         printBoard();
         quitGame(inputKey);
+        selfCollision(&snake.xPos, &snake.yPos);
         refresh();          //writes content on screen (terminal) and refreshes
         nanosleep(&tspec, NULL);
     }
@@ -259,6 +306,8 @@ int main(void){
     initializeSnake();
     generateSnakeHead();
 
+    pthread_create(&autoMoveThread, NULL, autoMove, NULL);
     runGame();
+    pthread_join(autoMoveThread, NULL);
     return 0;
 }
