@@ -34,7 +34,6 @@ struct Snake snake;
 bool gameOver = FALSE;
 int score = 0;
 
-
 void generateBoard(){
     for(int i = 0; i < row; i++){
         for(int j = 0; j < col; j++){
@@ -163,22 +162,6 @@ void moveSnake(int *snake_x, int *snake_y, int dx, int dy){
     *snake_x += dx;
     *snake_y += dy;
 
-    if(*snake_y < 1){
-        *snake_y = 1;
-    }
-
-    if(*snake_y > row - 2){
-        *snake_y = row - 2;
-    }
-
-    if(*snake_x < 1){
-        *snake_x = 1;
-    }
-
-    if(*snake_x > col - 2){
-        *snake_x = col - 2;
-    }
-
     collisionFruit(&snake.xPos, &snake.yPos, old_x, old_y);
 
     if(snake.snakeLength > 0){
@@ -217,6 +200,26 @@ void quitGame(int inputKey){
     }
 }
 
+void endGame(){
+    mvprintw(row + 2, 0, "Game Over!");
+    mvprintw(row + 3, 0, "Your score: %d", score);
+    gameOver = TRUE;
+}
+
+void selfCollision(int *snake_x, int *snake_y){
+    int snakePos = *snake_y * col + *snake_x;
+
+    if(*snake_y < 1 || *snake_x < 1 || *snake_y > row - 2 || *snake_x > col - 2){
+        mvprintw(row + 1, 0, "You hit the wall!");
+        endGame();
+    }
+
+    if(board[snakePos] == 'o'){
+        mvprintw(row + 1, 0, "You hit yourself!");
+        endGame();
+    }
+}
+
 void updateBoard(){
     generateBoard();
     board[snake.yPos * col + snake.xPos] = '8';
@@ -236,6 +239,7 @@ void runGame(){
         updateBoard();
         printBoard();
         quitGame(inputKey);
+        selfCollision(&snake.xPos, &snake.yPos);
         refresh();          //writes content on screen (terminal) and refreshes
         nanosleep(&tspec, NULL);
     }
