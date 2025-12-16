@@ -4,6 +4,7 @@
 #include <ncurses.h>
 #include <ctype.h>
 #include <pthread.h>
+#include "Snake_h.h"
 
 #define row 30
 #define col 40
@@ -245,6 +246,7 @@ void quitGame(int inputKey){
 }
 
 void endGame(){
+    printBoard();
     mvprintw(row + 2, 0, "Game Over!");
     mvprintw(row + 3, 0, "Your score: %d", score);
     gameOver = TRUE;
@@ -254,11 +256,13 @@ void selfCollision(int *snake_x, int *snake_y){
     int snakePos = *snake_y * col + *snake_x;
 
     if(*snake_y < 1 || *snake_x < 1 || *snake_y > row - 2 || *snake_x > col - 2){
+        clear();
         mvprintw(row + 1, 0, "You hit the wall!");
         endGame();
     }
 
     if(board[snakePos] == 'o'){
+        clear();
         mvprintw(row + 1, 0, "You hit yourself!");
         endGame();
     }
@@ -297,7 +301,7 @@ void setupGame(){
     nodelay(stdscr, TRUE);
 }
 
-int main(void){
+int startGame(void){
     srand(time(NULL));
     setupGame();    
     randomGenerateFruit();
